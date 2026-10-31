@@ -1,0 +1,29 @@
+name: Build Milan APK
+on:
+  push:
+    paths: [MilanTrip.zip, .github/workflows/milan.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -o MilanTrip.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - run: gradle assembleDebug --stacktrace
+        working-directory: MilanTrip
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: milan-build-1
+          name: Milan Trip (latest)
+          files: MilanTrip/app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+          make_latest: false
