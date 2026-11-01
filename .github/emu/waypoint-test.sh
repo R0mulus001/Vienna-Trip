@@ -34,6 +34,10 @@ D=$(adb shell wm density | grep -o '[0-9]*' | tail -1)
 up()   { adb shell input swipe $((W/2)) $((H*7/10)) $((W/2)) $((H*3/10)) 250; sleep 1.2; }
 down() { adb shell input swipe $((W/2)) $((H*3/10)) $((W/2)) $((H*7/10)) 250; sleep 1.2; }
 CRASHES=0
+tap_below() { # tap the middle of the screen, $2 dp below the text $1
+  p=$(node "$1"); [ -z "$p" ] && { echo "not found: $1"; return; }
+  y=$(( $(echo $p | awk '{print $2}') + $2 * D / 160 )); adb shell input tap $((W/2)) $y; sleep 1
+}
 front() { # make sure the app is in the foreground
   adb shell dumpsys activity activities | grep -q "mResumedActivity.*$PKG" || { echo "app not in front, reopening"; adb shell am start -n $PKG/.MainActivity >/dev/null; sleep 4; }
 }
@@ -87,16 +91,18 @@ city_body() {
   adb shell input keyevent 4; sleep 2   # Back goes to the city list
   if [ -n "$(node "Your trips")" ]; then echo "BACK_TO_HUB_OK $name"; else echo "::error::BACK_TO_HUB_FAILED $name"; front; fi
 }
+if [ "$QUICK" != "1" ]; then
 test_city "Kraków" 19.9373 50.0617
 test_city "Vienna" 16.3731 48.2085
 test_city "Milan" 9.1919 45.4641
+fi
 
 # --- a brand-new city: Portugal -> Lisbon, built on the phone from the internet
 adb emu geo fix -9.1393 38.7223; sleep 1
 front; tap_text "+  Plan a new trip"; sleep 2; shot add-countries; crash_check "countries"
-tap_text "Search countries or cities"; adb shell input text "Portu"; sleep 2; shot add-countries-search
+tap_below "Which country?" 52; adb shell input text "Portu"; sleep 2; shot add-countries-search
 tap_text "Portugal"; sleep 2; shot add-cities; crash_check "cities"
-tap_text "Search any city or town in Portugal"; adb shell input text "Obidos"; adb shell input keyevent 66; sleep 6
+tap_below "Which city?" 52; adb shell input text "Obidos"; adb shell input keyevent 66; sleep 8
 shot add-search-results; crash_check "city search"
 if [ -n "$(node "Óbidos")" ]; then echo "SEARCH_OK"; else echo "::error::SEARCH_FAILED"; fi
 adb shell input keyevent 4; sleep 1   # close keyboard

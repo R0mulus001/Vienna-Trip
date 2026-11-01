@@ -1,6 +1,10 @@
 name: Test Waypoint on emulator
 on:
   workflow_dispatch:
+    inputs:
+      quick:
+        description: "Only test adding a new city"
+        default: "0"
 permissions:
   contents: write
 jobs:
@@ -9,7 +13,7 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
-      - name: Get latest Krakow APK
+      - name: Get latest Waypoint APK
         env: { GH_TOKEN: "${{ github.token }}" }
         run: gh release download waypoint-build-1 -p app-debug.apk -O app.apk
       - name: Enable KVM
@@ -26,7 +30,7 @@ jobs:
           profile: pixel_4
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: bash .github/emu/waypoint-test.sh
+          script: QUICK=${{ inputs.quick }} bash .github/emu/waypoint-test.sh
       - name: Save screenshots to the emu-shots branch
         if: always()
         run: |
