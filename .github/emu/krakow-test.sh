@@ -56,7 +56,7 @@ tap_text "UNDO"; sleep 1; shot after-undo; crash_check "undo"
 if [ -n "$(node "Main Square (Rynek Główny)")" ]; then echo "UNDO_OK"; else echo "::error::UNDO_FAILED"; CRASHES=$((CRASHES+1)); fi
 # open a place panel, close it with Back
 tap_text "Main Square (Rynek Główny)"; sleep 4; shot place-panel; crash_check "open place"
-if [ -n "$(node "Your notes")" ]; then echo "PANEL_OK"; adb shell input keyevent 4; sleep 2; else echo "::error::PANEL_NOT_OPEN"; fi
+if [ -n "$(node "YOUR NOTES")" ]; then echo "PANEL_OK"; adb shell input keyevent 4; sleep 2; else echo "::error::PANEL_NOT_OPEN"; fi
 front
 
 for i in 1 2 3 4 5; do up; done; shot nearby-scrolled; crash_check "Nearby scroll"
