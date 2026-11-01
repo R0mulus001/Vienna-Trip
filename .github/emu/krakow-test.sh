@@ -34,6 +34,9 @@ D=$(adb shell wm density | grep -o '[0-9]*' | tail -1)
 up()   { adb shell input swipe $((W/2)) $((H*7/10)) $((W/2)) $((H*3/10)) 250; sleep 1.2; }
 down() { adb shell input swipe $((W/2)) $((H*3/10)) $((W/2)) $((H*7/10)) 250; sleep 1.2; }
 CRASHES=0
+front() { # make sure the app is in the foreground
+  adb shell dumpsys activity activities | grep -q "mResumedActivity.*$PKG" || { echo "app not in front, reopening"; adb shell am start -n $PKG/.MainActivity >/dev/null; sleep 4; }
+}
 
 adb install -r app.apk || exit 1
 adb emu geo fix 19.9373 50.0617   # Main Square, Kraków (lng lat)
@@ -48,16 +51,18 @@ tap_text "While using the app"; sleep 3; shot welcome-3-location-on; crash_check
 tap_text "Next"; shot welcome-4-offline
 tap_text "Skip, load photos as I go"; sleep 6; shot nearby-first; crash_check "finish welcome"
 # undo a mis-tap on Visited
-tap_text "Visited" first; sleep 1; shot toast; crash_check "tick visited"
+tap_text "Visited" first; shot toast; crash_check "tick visited"
 tap_text "UNDO"; sleep 1; shot after-undo; crash_check "undo"
-# open a place panel
+if [ -n "$(node "Main Square (Rynek Główny)")" ]; then echo "UNDO_OK"; else echo "::error::UNDO_FAILED"; CRASHES=$((CRASHES+1)); fi
+# open a place panel, close it with Back
 tap_text "Main Square (Rynek Główny)"; sleep 4; shot place-panel; crash_check "open place"
-adb shell input keyevent 4; sleep 2
+if [ -n "$(node "Your notes")" ]; then echo "PANEL_OK"; adb shell input keyevent 4; sleep 2; else echo "::error::PANEL_NOT_OPEN"; fi
+front
 
 for i in 1 2 3 4 5; do up; done; shot nearby-scrolled; crash_check "Nearby scroll"
 for i in 1 2 3 4 5 6; do down; done
 
-tap_text "Day plans" last; shot plans; crash_check "open Day plans"
+front; tap_text "Day plans" last; shot plans; crash_check "open Day plans"
 tap_text "[0-9]+ tips for this day" prefix; shot plans-tips-open; crash_check "open tips"
 for i in 1 2 3 4 5 6 7; do up; crash_check "Day plans scroll $i"; done; shot plans-bottom
 for i in 1 2 3 4 5 6 7 8; do down; done
