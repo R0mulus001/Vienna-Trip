@@ -133,7 +133,7 @@ adb shell input keyevent 4; sleep 1   # close keyboard
 tap_text "Lisbon"; sleep 3; shot build-progress; crash_check "build start"
 ok=""; for i in $(seq 1 40); do sleep 3; if [ -n "$(node "When is your trip?")" ]; then ok=1; break; fi; alive || break; done
 shot build-done; crash_check "build"
-if [ -n "$ok" ]; then echo "BUILD_GUIDE_OK"; city_body "Lisbon"; dl_test "Lisbon"; else echo "::error::BUILD_GUIDE_FAILED"; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -30; fi
+if [ -n "$ok" ]; then echo "BUILD_GUIDE_OK"; city_body "Lisbon"; front; tap_text "Lisbon"; sleep 3; dl_test "Lisbon"; else echo "::error::BUILD_GUIDE_FAILED"; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -30; fi
 shot hub-diary; crash_check "hub diary"
 for i in 1 2 3; do up; done; shot hub-diary-scrolled
 echo "TOTAL_CRASHES=$CRASHES"
