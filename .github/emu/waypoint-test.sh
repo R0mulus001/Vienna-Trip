@@ -59,11 +59,14 @@ city_body() {
   tap_text "Skip, load photos as I go"; sleep 6; shot "$name-nearby"; crash_check "$name nearby"
   tap_text "Visited" first; tap_text "UNDO"; sleep 1; crash_check "$name undo"
   tap_text "SIGHT" first; sleep 4; shot "$name-place-panel"; crash_check "$name place"
-  if [ -n "$(node "YOUR NOTES")" ]; then echo "PANEL_OK $name"; adb shell input keyevent 4; sleep 2; else echo "::error::PANEL_NOT_OPEN $name"; fi
+  if [ -n "$(node "YOUR NOTES")" ]; then echo "PANEL_OK $name"; else echo "::error::PANEL_NOT_OPEN $name"; fi
+  if [ -n "$(node "×")" ]; then adb shell input keyevent 4; sleep 2; fi
   tap_text "Eat"; sleep 1
   tap_text "RESTAURANT" first; sleep 4; tap_text "Menu"; sleep 1; shot "$name-restaurant"; crash_check "$name restaurant"
-  if [ -n "$(node "YOUR NOTES")" ]; then adb shell input keyevent 4; sleep 2; fi
-  tap_text "Free to see"
+  if [ -n "$(node "×")" ]; then echo "RESTAURANT_OK $name"; adb shell input keyevent 4; sleep 2; fi
+  if [ -n "$(node "×")" ]; then adb shell input keyevent 4; sleep 2; fi
+  if [ -z "$(node "Around you")" ]; then echo "::error::NOT_ON_NEARBY $name"; fi
+  tap_text "All"
   for i in 1 2 3 4 5 6; do up; done; crash_check "$name nearby scroll"; shot "$name-nearby-scrolled"
   for i in 1 2 3 4 5 6 7; do down; done
   tap_text "Day plans" last; shot "$name-plans"; crash_check "$name plans"
