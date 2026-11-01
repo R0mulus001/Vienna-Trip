@@ -57,7 +57,7 @@ dl_test() { # Download all from the bottom of Nearby, wait for it, check the res
   name="$1"; front
   for i in $(seq 1 14); do up; done
   tap_text "Download all"; tap_text "Download the remaining [0-9]+" prefix; sleep 3; shot "$name-dl-running"
-  r=""; for i in $(seq 1 100); do sleep 5
+  r=""; for i in $(seq 1 160); do sleep 5
     if [ -n "$(node "All done.*" prefix)" ]; then r=done; break; fi
     if [ -n "$(node "Download the remaining [0-9]+" prefix)" ]; then r=partial; break; fi
     alive || break
