@@ -52,6 +52,28 @@ tap_text "Allow location"; sleep 2
 tap_text "While using the app"; sleep 3; shot hub-welcome-location-on; crash_check "after permission"
 tap_text "Show my trips"; sleep 2; shot hub; crash_check "hub"
 
+dl_test() { # Download all from the bottom of Nearby, wait for it, check the result, then look at a few place photos
+  name="$1"; front
+  for i in $(seq 1 14); do up; done
+  tap_text "Download all"; tap_text "Download the remaining [0-9]+" prefix; sleep 3; shot "$name-dl-running"
+  r=""; for i in $(seq 1 100); do sleep 5
+    if [ -n "$(node "All done.*" prefix)" ]; then r=done; break; fi
+    if [ -n "$(node "Download the remaining [0-9]+" prefix)" ]; then r=partial; break; fi
+    alive || break
+  done
+  shot "$name-dl-finished"; crash_check "$name download"
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1
+  grep -o 'text="[^"]*places[^"]*"' ui.xml | head -3
+  if [ "$r" = done ]; then echo "DOWNLOAD_OK $name"; elif [ "$r" = partial ]; then echo "::warning::DOWNLOAD_PARTIAL $name"; else echo "::error::DOWNLOAD_TIMEOUT $name"; fi
+  for i in $(seq 1 16); do down; done
+  tap_text "Sights"; sleep 1
+  for k in 1 2 3; do
+    tap_text "SIGHT" first; sleep 3; shot "$name-photo-$k"
+    adb shell input swipe $((W*8/10)) $((H*25/100)) $((W*2/10)) $((H*25/100)) 200; sleep 1; shot "$name-photo-$k-b"
+    adb shell input keyevent 4; sleep 2; up
+  done
+  for i in $(seq 1 6); do down; done
+}
 test_city() { # $1 city name, $2 lng, $3 lat  (opens it from My trips)
   name="$1"; adb emu geo fix $2 $3; sleep 1
   front; tap_text "$name"; sleep 2
@@ -93,6 +115,7 @@ city_body() {
 }
 if [ "$QUICK" != "1" ]; then
 test_city "Kraków" 19.9373 50.0617
+front; tap_text "Kraków"; sleep 2; dl_test "Kraków"; adb shell input keyevent 4; sleep 2
 test_city "Vienna" 16.3731 48.2085
 test_city "Milan" 9.1919 45.4641
 fi
@@ -109,7 +132,7 @@ adb shell input keyevent 4; sleep 1   # close keyboard
 tap_text "Lisbon"; sleep 3; shot build-progress; crash_check "build start"
 ok=""; for i in $(seq 1 40); do sleep 3; if [ -n "$(node "When is your trip?")" ]; then ok=1; break; fi; alive || break; done
 shot build-done; crash_check "build"
-if [ -n "$ok" ]; then echo "BUILD_GUIDE_OK"; city_body "Lisbon"; else echo "::error::BUILD_GUIDE_FAILED"; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -30; fi
+if [ -n "$ok" ]; then echo "BUILD_GUIDE_OK"; city_body "Lisbon"; dl_test "Lisbon"; else echo "::error::BUILD_GUIDE_FAILED"; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -30; fi
 shot hub-diary; crash_check "hub diary"
 for i in 1 2 3; do up; done; shot hub-diary-scrolled
 echo "TOTAL_CRASHES=$CRASHES"
