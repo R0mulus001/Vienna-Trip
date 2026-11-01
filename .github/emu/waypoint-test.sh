@@ -63,7 +63,7 @@ city_body() {
   tap_text "Skip, load photos as I go"; sleep 6; shot "$name-nearby"; crash_check "$name nearby"
   tap_text "Visited" first; tap_text "UNDO"; sleep 1; crash_check "$name undo"
   tap_text "SIGHT" first; sleep 4; shot "$name-place-panel"; crash_check "$name place"
-  if [ -n "$(node "YOUR NOTES")" ]; then echo "PANEL_OK $name"; else echo "::error::PANEL_NOT_OPEN $name"; fi
+  if [ -n "$(node "×")" ]; then echo "PANEL_OK $name"; else echo "::error::PANEL_NOT_OPEN $name"; fi
   if [ -n "$(node "×")" ]; then adb shell input keyevent 4; sleep 2; fi
   tap_text "Eat"; sleep 1
   tap_text "RESTAURANT" first; sleep 4; tap_text "Menu"; sleep 1; shot "$name-restaurant"; crash_check "$name restaurant"
