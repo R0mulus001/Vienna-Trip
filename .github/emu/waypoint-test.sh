@@ -1,0 +1,90 @@
+#!/bin/bash
+# Drives Waypoint on an emulator like a brand-new user: welcome, location, then every city end to end.
+PKG=com.laur.waypoint
+mkdir -p shots; n=0
+shot() { n=$((n+1)); adb exec-out screencap -p > "shots/$(printf %02d $n)-$1.png"; }
+alive() { [ -n "$(adb shell pidof $PKG | tr -d '\r')" ]; }
+crash_check() {
+  if ! alive; then
+    echo "::error::APP CRASHED during: $1"
+    adb logcat -d | grep -A40 "FATAL EXCEPTION" | head -80
+    CRASHES=$((CRASHES+1))
+    adb logcat -c
+    adb shell am start -n $PKG/.MainActivity >/dev/null; sleep 6
+  fi
+}
+node() { # print center "x y" of a node: $1 text, $2 mode first|last|prefix
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1
+  python3 - "$1" "${2:-first}" <<'PY'
+import re,sys,html
+s=open("ui.xml",encoding="utf-8").read(); want,mode=sys.argv[1],sys.argv[2]; hits=[]
+for m in re.finditer(r'<node [^>]*>',s):
+    t=re.search(r' text="([^"]*)"',m.group(0)); b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',m.group(0))
+    if not (t and b): continue
+    tx=html.unescape(t.group(1))
+    if tx==want or (mode=="prefix" and re.match(want,tx)):
+        x1,y1,x2,y2=map(int,b.groups()); hits.append(((x1+x2)//2,(y1+y2)//2))
+if hits:
+    x,y=hits[-1] if mode=="last" else hits[0]; print(x,y)
+PY
+}
+tap_text() { p=$(node "$1" "$2"); if [ -n "$p" ]; then adb shell input tap $p; sleep 2; else echo "not found: $1"; fi; }
+SZ=$(adb shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1); W=${SZ%x*}; H=${SZ#*x}
+D=$(adb shell wm density | grep -o '[0-9]*' | tail -1)
+up()   { adb shell input swipe $((W/2)) $((H*7/10)) $((W/2)) $((H*3/10)) 250; sleep 1.2; }
+down() { adb shell input swipe $((W/2)) $((H*3/10)) $((W/2)) $((H*7/10)) 250; sleep 1.2; }
+CRASHES=0
+front() { # make sure the app is in the foreground
+  adb shell dumpsys activity activities | grep -q "mResumedActivity.*$PKG" || { echo "app not in front, reopening"; adb shell am start -n $PKG/.MainActivity >/dev/null; sleep 4; }
+}
+
+adb install -r app.apk || exit 1
+adb emu geo fix 19.9373 50.0617   # Main Square, Kraków (lng lat)
+adb logcat -c
+adb shell am start -n $PKG/.MainActivity; sleep 10
+shot hub-welcome-1; crash_check "launch"
+tap_text "Get started"; shot hub-welcome-2; crash_check "welcome page 2"
+tap_text "Allow location"; sleep 2
+tap_text "While using the app"; sleep 3; shot hub-welcome-location-on; crash_check "after permission"
+tap_text "Choose a city"; sleep 2; shot hub; crash_check "hub"
+
+test_city() { # $1 city name, $2 lng, $3 lat
+  name="$1"; adb emu geo fix $2 $3; sleep 1
+  front; tap_text "$name"; sleep 2; shot "$name-welcome-dates"; crash_check "$name open"
+  tap_text "Next"; shot "$name-welcome-offline"
+  tap_text "Skip, load photos as I go"; sleep 6; shot "$name-nearby"; crash_check "$name nearby"
+  tap_text "Visited" first; tap_text "UNDO"; sleep 1; crash_check "$name undo"
+  tap_text "SIGHT" first; sleep 4; shot "$name-place-panel"; crash_check "$name place"
+  if [ -n "$(node "YOUR NOTES")" ]; then echo "PANEL_OK $name"; adb shell input keyevent 4; sleep 2; else echo "::error::PANEL_NOT_OPEN $name"; fi
+  tap_text "Eat"; sleep 1
+  tap_text "RESTAURANT" first; sleep 4; tap_text "Menu"; sleep 1; shot "$name-restaurant"; crash_check "$name restaurant"
+  if [ -n "$(node "YOUR NOTES")" ]; then adb shell input keyevent 4; sleep 2; fi
+  tap_text "Free to see"
+  for i in 1 2 3 4 5 6; do up; done; crash_check "$name nearby scroll"; shot "$name-nearby-scrolled"
+  for i in 1 2 3 4 5 6 7; do down; done
+  tap_text "Day plans" last; shot "$name-plans"; crash_check "$name plans"
+  tap_text "[0-9]+ tips for this day" prefix
+  tap_text "4  ▾"; tap_text "7"; sleep 1; crash_check "$name 7 days"
+  TOP=$(node "TODAY" | awk '{print $2}')
+  for d in 0 1 2 3 4 5 6; do
+    px=$((D*16/160)); gap=$((D*6/160)); cw=$(((W-2*px-6*gap)/7))
+    x=$((px + d*(cw+gap) + cw/2))
+    [ -n "$TOP" ] && adb shell input tap $x $TOP; sleep 2
+    for i in 1 2 3 4 5 6 7; do up; done; crash_check "$name day $d"
+    [ $d = 0 ] && shot "$name-day0-bottom"
+    for i in 1 2 3 4 5 6 7 8; do down; done
+  done
+  tap_text "Done" first; sleep 1; crash_check "$name done"
+  tap_text "Visited" last; shot "$name-visited"; crash_check "$name visited tab"
+  tap_text "Nearby" last; sleep 1
+  adb shell input keyevent 4; sleep 2   # Back goes to the city list
+  if [ -n "$(node "Where are you going?")" ]; then echo "BACK_TO_HUB_OK $name"; else echo "::error::BACK_TO_HUB_FAILED $name"; front; fi
+}
+test_city "Kraków" 19.9373 50.0617
+test_city "Vienna" 16.3731 48.2085
+test_city "Milan" 9.1919 45.4641
+shot hub-diary; crash_check "hub diary"
+for i in 1 2 3; do up; done; shot hub-diary-scrolled
+echo "TOTAL_CRASHES=$CRASHES"
+adb logcat -d | grep -E "FATAL|AndroidRuntime" | head -40
+[ "$CRASHES" = "0" ]
