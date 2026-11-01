@@ -7,6 +7,9 @@ on:
         default: "0"
 permissions:
   contents: write
+concurrency:
+  group: waypoint-test
+  cancel-in-progress: false
 jobs:
   test:
     runs-on: ubuntu-latest

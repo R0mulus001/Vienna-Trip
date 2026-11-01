@@ -43,6 +43,7 @@ front() { # make sure the app is in the foreground
 }
 
 adb install -r app.apk || exit 1
+adb shell settings put secure location_mode 3   # make sure location is switched on
 adb emu geo fix 19.9373 50.0617   # Main Square, Kraków (lng lat)
 adb logcat -c
 adb shell am start -n $PKG/.MainActivity; sleep 10
