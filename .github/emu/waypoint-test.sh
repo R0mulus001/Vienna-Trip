@@ -46,11 +46,15 @@ shot hub-welcome-1; crash_check "launch"
 tap_text "Get started"; shot hub-welcome-2; crash_check "welcome page 2"
 tap_text "Allow location"; sleep 2
 tap_text "While using the app"; sleep 3; shot hub-welcome-location-on; crash_check "after permission"
-tap_text "Choose a city"; sleep 2; shot hub; crash_check "hub"
+tap_text "Show my trips"; sleep 2; shot hub; crash_check "hub"
 
-test_city() { # $1 city name, $2 lng, $3 lat
+test_city() { # $1 city name, $2 lng, $3 lat  (opens it from My trips)
   name="$1"; adb emu geo fix $2 $3; sleep 1
-  front; tap_text "$name"; sleep 2; shot "$name-welcome-dates"; crash_check "$name open"
+  front; tap_text "$name"; sleep 2
+  city_body "$name"
+}
+city_body() {
+  name="$1"; shot "$name-welcome-dates"; crash_check "$name open"
   tap_text "Next"; shot "$name-welcome-offline"
   tap_text "Skip, load photos as I go"; sleep 6; shot "$name-nearby"; crash_check "$name nearby"
   tap_text "Visited" first; tap_text "UNDO"; sleep 1; crash_check "$name undo"
@@ -78,11 +82,25 @@ test_city() { # $1 city name, $2 lng, $3 lat
   tap_text "Visited" last; shot "$name-visited"; crash_check "$name visited tab"
   tap_text "Nearby" last; sleep 1
   adb shell input keyevent 4; sleep 2   # Back goes to the city list
-  if [ -n "$(node "Where are you going?")" ]; then echo "BACK_TO_HUB_OK $name"; else echo "::error::BACK_TO_HUB_FAILED $name"; front; fi
+  if [ -n "$(node "Your trips")" ]; then echo "BACK_TO_HUB_OK $name"; else echo "::error::BACK_TO_HUB_FAILED $name"; front; fi
 }
 test_city "Kraków" 19.9373 50.0617
 test_city "Vienna" 16.3731 48.2085
 test_city "Milan" 9.1919 45.4641
+
+# --- a brand-new city: Portugal -> Lisbon, built on the phone from the internet
+adb emu geo fix -9.1393 38.7223; sleep 1
+front; tap_text "+  Plan a new trip"; sleep 2; shot add-countries; crash_check "countries"
+tap_text "Search countries or cities"; adb shell input text "Portu"; sleep 2; shot add-countries-search
+tap_text "Portugal"; sleep 2; shot add-cities; crash_check "cities"
+tap_text "Search any city or town in Portugal"; adb shell input text "Obidos"; adb shell input keyevent 66; sleep 6
+shot add-search-results; crash_check "city search"
+if [ -n "$(node "Óbidos")" ]; then echo "SEARCH_OK"; else echo "::error::SEARCH_FAILED"; fi
+adb shell input keyevent 4; sleep 1   # close keyboard
+tap_text "Lisbon"; sleep 3; shot build-progress; crash_check "build start"
+ok=""; for i in $(seq 1 40); do sleep 3; if [ -n "$(node "When is your trip?")" ]; then ok=1; break; fi; alive || break; done
+shot build-done; crash_check "build"
+if [ -n "$ok" ]; then echo "BUILD_GUIDE_OK"; city_body "Lisbon"; else echo "::error::BUILD_GUIDE_FAILED"; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -30; fi
 shot hub-diary; crash_check "hub diary"
 for i in 1 2 3; do up; done; shot hub-diary-scrolled
 echo "TOTAL_CRASHES=$CRASHES"
