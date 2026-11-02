@@ -65,6 +65,7 @@ dl_test() { # Download all from the bottom of Nearby, wait for it, check the res
   shot "$name-dl-finished"; crash_check "$name download"
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml ui.xml >/dev/null 2>&1
   grep -o 'text="[^"]*places[^"]*"' ui.xml | head -3
+  echo "--- photo log for $name:"; adb logcat -d -s Waypoint:W | grep -v '^-' | sed 's/^.*Waypoint *: //' | sed 's/[0-9]\{3,\}/N/g' | sort | uniq -c | sort -rn | head -12
   if [ "$r" = done ]; then echo "DOWNLOAD_OK $name"; elif [ "$r" = partial ]; then echo "::warning::DOWNLOAD_PARTIAL $name"; else echo "::error::DOWNLOAD_TIMEOUT $name"; fi
   for i in $(seq 1 16); do down; done
   tap_text "Sights"; sleep 1
