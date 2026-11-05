@@ -37,6 +37,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
+      - name: Check signing secret (prints only length + short fingerprint)
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          t=$(printf '%s' "$SIGNING_PASSWORD" | tr -d '[:space:]')
+          echo "raw length: ${#SIGNING_PASSWORD}, trimmed length: ${#t} (expected 32)"
+          echo "fingerprint: $(printf '%s' "$t" | sha256sum | cut -c1-8) (expected dadca16f)"
       - name: Build signed release APK
         run: |
           gradle assembleRelease --stacktrace
