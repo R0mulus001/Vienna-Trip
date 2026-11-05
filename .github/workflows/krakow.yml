@@ -34,12 +34,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - run: gradle assembleDebug --stacktrace
+      - name: Build signed release APK
+        run: |
+          gradle assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../KrakowTrip.apk
         working-directory: KrakowTrip
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      - name: Remove the old debug APK from the release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh release delete-asset krakow-build-1 app-debug.apk -y || true
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: krakow-build-1
           name: Krakow Trip (latest)
-          files: KrakowTrip/app/build/outputs/apk/debug/app-debug.apk
+          files: KrakowTrip.apk
           overwrite_files: true
           make_latest: false
